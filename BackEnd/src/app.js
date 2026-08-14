@@ -28,12 +28,15 @@ app.post("/debug", (req, res) => {
 });
 
 //routes
-
 import userRouter from "./routes/user.routes.js"; 
 import likeRouter from "./routes/like.routes.js";
 import subscriptionRouter from "./routes/subscription.routes.js";
 import playlistRouter from "./routes/playlist.routes.js";
 import commentRouter from "./routes/comment.routes.js";
+import videoRouter from "./routes/video.routes.js";
+import channelRouter from "./routes/channel.routes.js";
+import searchRouter from "./routes/search.routes.js";
+import categoryRouter from "./routes/category.routes.js";
 
 //routes declaration
 app.use("/api/v1/users", userRouter);
@@ -41,6 +44,12 @@ app.use("/api/v1/likes", likeRouter);
 app.use("/api/v1/subscriptions", subscriptionRouter);
 app.use("/api/v1/playlist", playlistRouter);
 app.use("/api/v1/comments", commentRouter);
+
+// New unified routes mapped to original frontend paths
+app.use("/api/videos", videoRouter);
+app.use("/api/channels", channelRouter);
+app.use("/api/search", searchRouter);
+app.use("/api/categories", categoryRouter);
 
 // error handler middleware
 app.use((err, req, res, next) => {

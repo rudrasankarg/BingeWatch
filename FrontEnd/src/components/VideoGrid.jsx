@@ -3,7 +3,7 @@ import axios from 'axios'
 import VideoCard from './VideoCard.jsx'
 import SkeletonCard from './SkeletonCard.jsx'
 
-const CATEGORIES = ['All', 'Gaming', 'Music', 'Tech', 'Science', 'Sports', 'Comedy', 'News', 'Education', 'Film']
+const CATEGORIES = ['All', 'Gaming', 'Music', 'Tech', 'Science', 'Sports', 'Comedy', 'News', 'Education', 'Film', 'Other']
 
 export default function VideoGrid({ onVideoClick, refreshKey }) {
   const [videos, setVideos] = useState([])

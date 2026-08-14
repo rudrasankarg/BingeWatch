@@ -50,7 +50,7 @@ const videoSchema = new mongoose.Schema({
     duration: { type: String, default: '0:00' },
     category: {
         type: String,
-        enum: ['All', 'Gaming', 'Music', 'Tech', 'Science', 'Sports', 'Comedy', 'News', 'Education', 'Film'],
+        enum: ['All', 'Gaming', 'Music', 'Tech', 'Science', 'Sports', 'Comedy', 'News', 'Education', 'Film', 'Other'],
         default: 'All'
     },
     uploadedAt: { type: Date, default: Date.now },
@@ -178,7 +178,7 @@ app.get('/api/channels', async (req, res) => {
 
 // GET /api/categories
 app.get('/api/categories', async (req, res) => {
-    const cats = ['All', 'Gaming', 'Music', 'Tech', 'Science', 'Sports', 'Comedy', 'News', 'Education', 'Film'];
+    const cats = ['All', 'Gaming', 'Music', 'Tech', 'Science', 'Sports', 'Comedy', 'News', 'Education', 'Film', 'Other'];
     res.json(cats);
 });
 

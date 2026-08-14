@@ -14,7 +14,7 @@ export default function UploadModal({ user, onClose, onUploadSuccess }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const categories = ['Gaming', 'Music', 'Tech', 'Science', 'Sports', 'Comedy', 'News', 'Education', 'Film']
+  const categories = ['Gaming', 'Music', 'Tech', 'Science', 'Sports', 'Comedy', 'News', 'Education', 'Film', 'Other']
 
   const handleSubmit = async (e) => {
     e.preventDefault()

@@ -42,6 +42,23 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('')
   const [allVideos, setAllVideos] = useState([])
 
+  const handleVideoClick = useCallback((video) => {
+    setSelectedVideo(video)
+    setPage('watch')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+
+    // Save to localStorage history
+    try {
+      const historyIds = JSON.parse(localStorage.getItem('bw_history') || '[]')
+      const videoId = video._id || video.id
+      const filtered = historyIds.filter(id => id !== videoId)
+      filtered.push(videoId)
+      localStorage.setItem('bw_history', JSON.stringify(filtered))
+    } catch (e) {
+      console.error(e)
+    }
+  }, [])
+
   // Pre-fetch all videos for related panel
   useEffect(() => {
     axios.get('/api/videos')
@@ -60,23 +77,6 @@ export default function App() {
       })
       .catch(() => {})
   }, [handleVideoClick])
-
-  const handleVideoClick = useCallback((video) => {
-    setSelectedVideo(video)
-    setPage('watch')
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-
-    // Save to localStorage history
-    try {
-      const historyIds = JSON.parse(localStorage.getItem('bw_history') || '[]')
-      const videoId = video._id || video.id
-      const filtered = historyIds.filter(id => id !== videoId)
-      filtered.push(videoId)
-      localStorage.setItem('bw_history', JSON.stringify(filtered))
-    } catch (e) {
-      console.error(e)
-    }
-  }, [])
 
   const handleSearch = useCallback((query) => {
     setSearchQuery(query)

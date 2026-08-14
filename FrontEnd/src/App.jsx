@@ -7,6 +7,7 @@ import VideoPlayer from './components/VideoPlayer.jsx'
 import SearchResults from './components/SearchResults.jsx'
 import ProfileAuth from './components/ProfileAuth.jsx'
 import UploadModal from './components/UploadModal.jsx'
+import ChannelPage from './components/ChannelPage.jsx'
 
 export default function App() {
   // ─── Theme ──────────────────────────────────────────────────────────────────
@@ -205,6 +206,14 @@ export default function App() {
               </div>
             </div>
           )}
+          {page === 'channel' && user && (
+            <ChannelPage
+              user={user}
+              onVideoClick={handleVideoClick}
+              refreshKey={refreshKey}
+              onSaveSuccess={(updatedUser) => setUser(updatedUser)}
+            />
+          )}
         </main>
       </div>
 
@@ -215,6 +224,10 @@ export default function App() {
           onClose={() => setShowProfileAuth(false)}
           onLoginSuccess={(userData) => setUser(userData)}
           onLogout={() => setUser(null)}
+          onViewChannel={() => {
+            setPage('channel')
+            setActiveSidebarItem('')
+          }}
         />
       )}
 

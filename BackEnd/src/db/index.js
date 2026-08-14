@@ -16,11 +16,14 @@ const connectDB = async () => {
     const connectionString = hasDatabase ? normalizedUri : `${normalizedUri}/${DB_NAME}`;
 
     try {
+        console.log("Attempting to connect to MongoDB...");
         const connectionInstance = await mongoose.connect(connectionString);
         console.log("MONGO DB CONNECTED:", connectionInstance.connection.host);
+        console.log("Database connection established successfully!");
     }
     catch(error){
-        console.log("MONGO DB CONNECTION ERROR:", error);
+        console.error("MONGO DB CONNECTION ERROR:", error.message);
+        console.error("Please check your MONGODB_URI and ensure your IP is whitelisted in MongoDB Atlas.");
         process.exit(1);
     }
 }

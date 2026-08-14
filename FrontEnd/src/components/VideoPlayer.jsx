@@ -57,17 +57,33 @@ const SettingsIcon = () => (
 )
 
 // ─── Component ────────────────────────────────────────────────────────────────
-export default function VideoPlayer({ video, onVideoClick, relatedVideos, user, onRequireAuth }) {
+import axios from 'axios'
+
+export default function VideoPlayer({ video, onVideoClick, relatedVideos, user, onRequireAuth, onDeleteVideo }) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [progress, setProgress] = useState(0)
   const [liked, setLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(video.likes || 0)
   const [subscribed, setSubscribed] = useState(false)
   const [descExpanded, setDescExpanded] = useState(false)
-  const intervalRef = useRef(null)
+  const [playbackRate, setPlaybackRate] = useState(1)
+  const [videoDuration, setVideoDuration] = useState(0)
+  const [videoCurrentTime, setVideoCurrentTime] = useState(0)
 
-  // Simulate play progress
+  const intervalRef = useRef(null)
+  const videoRef = useRef(null)
+
+  // Handle play/pause progress
   useEffect(() => {
+    if (video.videoUrl && videoRef.current) {
+      if (isPlaying) {
+        videoRef.current.play().catch(() => setIsPlaying(false))
+      } else {
+        videoRef.current.pause()
+      }
+      return
+    }
+
     if (isPlaying) {
       intervalRef.current = setInterval(() => {
         setProgress((p) => {
@@ -79,7 +95,7 @@ export default function VideoPlayer({ video, onVideoClick, relatedVideos, user, 
       clearInterval(intervalRef.current)
     }
     return () => clearInterval(intervalRef.current)
-  }, [isPlaying])
+  }, [isPlaying, video.videoUrl])
 
   // Reset when video changes
   useEffect(() => {
@@ -89,6 +105,13 @@ export default function VideoPlayer({ video, onVideoClick, relatedVideos, user, 
     setLikeCount(video.likes || 0)
     setSubscribed(false)
     setDescExpanded(false)
+    setPlaybackRate(1)
+    setVideoCurrentTime(0)
+    setVideoDuration(0)
+    if (videoRef.current) {
+      videoRef.current.playbackRate = 1
+      videoRef.current.load()
+    }
   }, [video._id || video.id])
 
   const handleLike = () => {
@@ -104,7 +127,75 @@ export default function VideoPlayer({ video, onVideoClick, relatedVideos, user, 
     const rect = e.currentTarget.getBoundingClientRect()
     const pct = ((e.clientX - rect.left) / rect.width) * 100
     setProgress(Math.min(100, Math.max(0, pct)))
+
+    if (video.videoUrl && videoRef.current && videoDuration > 0) {
+      videoRef.current.currentTime = (pct / 100) * videoDuration
+    }
   }
+
+  const skipBackward = () => {
+    if (video.videoUrl && videoRef.current) {
+      videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 5)
+    } else {
+      setProgress(p => Math.max(0, p - 5))
+    }
+  }
+
+  const skipForward = () => {
+    if (video.videoUrl && videoRef.current) {
+      videoRef.current.currentTime = Math.min(videoDuration, videoRef.current.currentTime + 5)
+    } else {
+      setProgress(p => Math.min(100, p + 5))
+    }
+  }
+
+  const handleSpeedChange = () => {
+    const rates = [1, 1.25, 1.5, 2]
+    const nextIndex = (rates.indexOf(playbackRate) + 1) % rates.length
+    const nextRate = rates[nextIndex]
+    setPlaybackRate(nextRate)
+    if (videoRef.current) {
+      videoRef.current.playbackRate = nextRate
+    }
+  }
+
+  const handleTimeUpdate = () => {
+    if (videoRef.current) {
+      const cur = videoRef.current.currentTime
+      const dur = videoRef.current.duration || 0
+      setVideoCurrentTime(cur)
+      setProgress(dur > 0 ? (cur / dur) * 100 : 0)
+    }
+  }
+
+  const handleLoadedMetadata = () => {
+    if (videoRef.current) {
+      setVideoDuration(videoRef.current.duration)
+    }
+  }
+
+  const handleDeleteVideo = async () => {
+    if (!window.confirm("Are you sure you want to delete this video?")) return
+    try {
+      await axios.delete(`/api/videos/${video._id || video.id}`)
+      alert("Video deleted successfully!")
+      if (onDeleteVideo) {
+        onDeleteVideo(video._id || video.id)
+      }
+    } catch (err) {
+      alert("Failed to delete video.")
+    }
+  }
+
+  const formatTime = (timeInSecs) => {
+    const m = Math.floor(timeInSecs / 60)
+    const s = Math.floor(timeInSecs % 60)
+    return `${m}:${String(s).padStart(2, '0')}`
+  }
+
+  const timeDisplay = video.videoUrl
+    ? `${formatTime(videoCurrentTime)} / ${formatTime(videoDuration)}`
+    : `${Math.floor(progress * 0.8)}:${String(Math.floor((progress * 0.8 % 1) * 60)).padStart(2, '0')} / ${video.duration === 'LIVE' ? '🔴 LIVE' : video.duration}`
 
   const initials = (video.channel || 'BW').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
 
@@ -121,8 +212,21 @@ export default function VideoPlayer({ video, onVideoClick, relatedVideos, user, 
       {/* Left: Player + Details */}
       <div className="video-player-container">
         {/* Player */}
-        <div className="video-player-wrap" id="video-player">
-          <Thumbnail gradients={video.thumbnailGradient} />
+        <div className="video-player-wrap" id="video-player" style={{ position: 'relative', overflow: 'hidden', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {video.videoUrl ? (
+            <video
+              ref={videoRef}
+              src={video.videoUrl}
+              className="video-element"
+              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+              onClick={() => setIsPlaying(!isPlaying)}
+              onTimeUpdate={handleTimeUpdate}
+              onLoadedMetadata={handleLoadedMetadata}
+            />
+          ) : (
+            <Thumbnail gradients={video.thumbnailGradient} />
+          )}
+          
           <div className="player-controls-overlay">
             {/* Center play button */}
             <button
@@ -166,12 +270,36 @@ export default function VideoPlayer({ video, onVideoClick, relatedVideos, user, 
                       : <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
                     }
                   </button>
+                  <button
+                    className="ctrl-btn"
+                    onClick={skipBackward}
+                    title="Rewind 5s"
+                    style={{ fontSize: '11px', fontWeight: 'bold' }}
+                  >
+                    -5s
+                  </button>
+                  <button
+                    className="ctrl-btn"
+                    onClick={skipForward}
+                    title="Forward 5s"
+                    style={{ fontSize: '11px', fontWeight: 'bold' }}
+                  >
+                    +5s
+                  </button>
                   <button id="player-volume-btn" className="ctrl-btn" aria-label="Volume">
                     <VolIcon />
                   </button>
-                  <span className="time-display">{currentTime} / {video.duration === 'LIVE' ? '🔴 LIVE' : video.duration}</span>
+                  <span className="time-display">{timeDisplay}</span>
                 </div>
-                <div className="player-controls-left">
+                <div className="player-controls-left" style={{ gap: '8px' }}>
+                  <button
+                    className="ctrl-btn"
+                    onClick={handleSpeedChange}
+                    title="Playback speed"
+                    style={{ fontSize: '11px', fontWeight: 'bold', padding: '2px 6px', background: 'rgba(255,255,255,0.15)', borderRadius: '4px' }}
+                  >
+                    {playbackRate}x
+                  </button>
                   <button id="player-settings-btn" className="ctrl-btn" aria-label="Settings">
                     <SettingsIcon />
                   </button>
@@ -264,6 +392,20 @@ export default function VideoPlayer({ video, onVideoClick, relatedVideos, user, 
               >
                 <SaveIcon /> Save
               </button>
+              {user && (user.username === video.owner || user.email === video.owner) && (
+                <button
+                  id="delete-btn"
+                  className="action-btn-solo"
+                  onClick={handleDeleteVideo}
+                  style={{ color: 'var(--danger)', background: 'rgba(255,77,109,0.1)' }}
+                  aria-label="Delete this video"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                  </svg>
+                  Delete
+                </button>
+              )}
             </div>
           </div>
 

@@ -3,10 +3,22 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import dns from 'node:dns';
+import multer from 'multer';
+import { v2 as cloudinary } from 'cloudinary';
+import fs from 'fs';
+import os from 'os';
 
 dns.setServers(["8.8.8.8", "1.1.1.1"]);
 
 dotenv.config();
+
+cloudinary.config({ 
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME, 
+    api_key: process.env.CLOUDINARY_API_KEY, 
+    api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
+const upload = multer({ dest: os.tmpdir() });
 
 const app = express();
 
@@ -48,6 +60,8 @@ const videoSchema = new mongoose.Schema({
     likes: { type: Number, default: 0 },
     dislikes: { type: Number, default: 0 },
     duration: { type: String, default: '0:00' },
+    videoUrl: { type: String, default: '' },
+    owner: { type: String, default: '' },
     category: {
         type: String,
         enum: ['All', 'Gaming', 'Music', 'Tech', 'Science', 'Sports', 'Comedy', 'News', 'Education', 'Film', 'Other'],
@@ -64,18 +78,33 @@ const Channel = mongoose.model('Channel', channelSchema);
 
 // ─── API Routes ───────────────────────────────────────────────────────────────
 
-// POST /api/videos (Create new video)
-app.post('/api/videos', async (req, res) => {
-    const { title, description, category, channel, channelHandle, channelAvatarColor } = req.body;
+// POST /api/videos (Create new video with file upload)
+app.post('/api/videos', upload.single('videoFile'), async (req, res) => {
+    const { title, description, category, channel, channelHandle, channelAvatarColor, owner } = req.body;
 
     if (!title || !channel || !channelHandle) {
+        if (req.file) fs.unlinkSync(req.file.path);
         return res.status(400).json({ error: 'Title, channel, and channelHandle are required' });
+    }
+
+    if (!req.file) {
+        return res.status(400).json({ error: 'Video file is required' });
     }
 
     try {
         if (mongoose.connection.readyState !== 1) {
+            fs.unlinkSync(req.file.path);
             return res.status(503).json({ error: 'Database connection not ready' });
         }
+
+        // Upload video to Cloudinary
+        const uploadResult = await cloudinary.uploader.upload(req.file.path, {
+            resource_type: 'video',
+            folder: 'bingewatch_videos'
+        });
+
+        // Delete temp local file
+        fs.unlinkSync(req.file.path);
 
         // Generate a random gradient for the video thumbnail
         const colors = [
@@ -88,9 +117,10 @@ app.post('/api/videos', async (req, res) => {
         const color2 = colors[Math.floor(Math.random() * colors.length)];
         const thumbnailGradient = [color1, color2];
 
-        // Random duration between 1:30 and 15:45
-        const min = Math.floor(Math.random() * 15) + 1;
-        const sec = Math.floor(Math.random() * 60).toString().padStart(2, '0');
+        // Format duration based on actual duration returned by Cloudinary
+        const durationSecs = uploadResult.duration || 0;
+        const min = Math.floor(durationSecs / 60);
+        const sec = Math.floor(durationSecs % 60).toString().padStart(2, '0');
         const duration = `${min}:${sec}`;
 
         const video = new Video({
@@ -102,6 +132,8 @@ app.post('/api/videos', async (req, res) => {
             channelAvatarColor: channelAvatarColor || '#6366f1',
             thumbnailGradient,
             duration,
+            videoUrl: uploadResult.secure_url,
+            owner: owner || channelHandle,
             views: 0,
             likes: 0,
             dislikes: 0,
@@ -110,6 +142,26 @@ app.post('/api/videos', async (req, res) => {
 
         await video.save();
         res.status(201).json(video);
+    } catch (err) {
+        if (req.file) fs.unlinkSync(req.file.path);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// DELETE /api/videos/:id (Delete a video)
+app.delete('/api/videos/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        if (mongoose.connection.readyState !== 1) {
+            return res.status(503).json({ error: 'Database connection not ready' });
+        }
+        const video = await Video.findById(id);
+        if (!video) {
+            return res.status(404).json({ error: 'Video not found' });
+        }
+
+        await Video.findByIdAndDelete(id);
+        res.json({ message: 'Video deleted successfully' });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

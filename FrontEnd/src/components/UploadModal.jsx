@@ -11,6 +11,7 @@ export default function UploadModal({ user, onClose, onUploadSuccess }) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [category, setCategory] = useState('Gaming')
+  const [videoFile, setVideoFile] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -22,16 +23,25 @@ export default function UploadModal({ user, onClose, onUploadSuccess }) {
       setError('Title is required')
       return
     }
+    if (!videoFile) {
+      setError('Please select a video file')
+      return
+    }
     setLoading(true)
     setError('')
     try {
-      const res = await axios.post('/api/videos', {
-        title: title.trim(),
-        description: description.trim(),
-        category,
-        channel: user.fullName || user.username,
-        channelHandle: `@${user.username}`,
-        channelAvatarColor: user.avatarColor || '#6366f1'
+      const formData = new FormData()
+      formData.append('title', title.trim())
+      formData.append('description', description.trim())
+      formData.append('category', category)
+      formData.append('channel', user.fullName || user.username)
+      formData.append('channelHandle', `@${user.username}`)
+      formData.append('channelAvatarColor', user.avatarColor || '#6366f1')
+      formData.append('owner', user.username || user.email)
+      formData.append('videoFile', videoFile)
+
+      const res = await axios.post('/api/videos', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       })
 
       if (res.data) {
@@ -74,6 +84,18 @@ export default function UploadModal({ user, onClose, onUploadSuccess }) {
               placeholder="e.g. My First Gaming Montage"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label" htmlFor="upload-file">Select Video File</label>
+            <input
+              id="upload-file"
+              type="file"
+              accept="video/*"
+              className="form-input"
+              onChange={(e) => setVideoFile(e.target.files[0])}
               required
             />
           </div>

@@ -114,6 +114,10 @@ export default function App() {
               relatedVideos={allVideos}
               user={user}
               onRequireAuth={() => setShowProfileAuth(true)}
+              onDeleteVideo={(deletedId) => {
+                setAllVideos(prev => prev.filter(v => (v._id || v.id) !== deletedId))
+                handleLogoClick()
+              }}
             />
           )}
           {page === 'search' && (

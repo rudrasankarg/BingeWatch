@@ -95,11 +95,11 @@ const registerUser = asyncHandler(async (req, res) => {
     // Send OTP verification email
     await sendVerificationEmail(email, otp);
 
-    return res.status(201).json(new ApiResponse(201, {
+    return res.status(201).json(new ApiResponse(201, "Registration initiated. Verification OTP sent to your email.", {
         isUnverified: true,
         email: user.email,
         username: user.username
-    }, "Registration initiated. Verification OTP sent to your email."));
+    }));
 })
 
 const loginUser = asyncHandler(async (req, res) => {
@@ -141,10 +141,10 @@ const loginUser = asyncHandler(async (req, res) => {
         await user.save();
         await sendVerificationEmail(user.email, otp);
 
-        return res.status(403).json(new ApiResponse(403, {
+        return res.status(403).json(new ApiResponse(403, "Email is not verified. A verification OTP has been sent to your email.", {
             isUnverified: true,
             email: user.email
-        }, "Email is not verified. A verification OTP has been sent to your email."));
+        }));
     }
 
     const {accessToken, refreshToken} = await generateAccessAndRefreshTokens(user._id)
@@ -497,11 +497,11 @@ const verifyOTP = asyncHandler(async (req, res) => {
     return res.status(200)
         .cookie("accessToken", accessToken, options)
         .cookie("refreshToken", refreshToken, options)
-        .json(new ApiResponse(200, {
+        .json(new ApiResponse(200, "Email verified and logged in successfully", {
             user: loggedInUser,
             accessToken,
             refreshToken
-        }, "Email verified and logged in successfully"));
+        }));
 });
 
 const resendOTP = asyncHandler(async (req, res) => {
@@ -528,7 +528,7 @@ const resendOTP = asyncHandler(async (req, res) => {
 
     await sendVerificationEmail(user.email, otp);
 
-    return res.status(200).json(new ApiResponse(200, null, "Verification OTP sent successfully"));
+    return res.status(200).json(new ApiResponse(200, "Verification OTP sent successfully", null));
 });
 
 export {

@@ -79,9 +79,11 @@ function ProfilePanel({ user, onClose, onLogout }) {
 
 // ─── Auth Modal (shown when NOT logged in) ───────────────────────────────────
 function AuthModal({ onClose, onLoginSuccess }) {
-  const [tab, setTab] = useState('login') // 'login' | 'register'
+  const [tab, setTab] = useState('login') // 'login' | 'register' | 'otp'
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [verificationEmail, setVerificationEmail] = useState('')
+  const [otpCode, setOtpCode] = useState('')
 
   // Login state
   const [loginForm, setLoginForm] = useState({ emailOrUsername: '', password: '' })
@@ -104,7 +106,12 @@ function AuthModal({ onClose, onLoginSuccess }) {
       onLoginSuccess(res.data?.data?.user || res.data)
       onClose()
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed. Check credentials.')
+      if (err.response?.status === 403 && err.response?.data?.data?.isUnverified) {
+        setVerificationEmail(err.response.data.data.email)
+        setTab('otp')
+      } else {
+        setError(err.response?.data?.message || 'Login failed. Check credentials.')
+      }
     } finally {
       setLoading(false)
     }
@@ -116,7 +123,7 @@ function AuthModal({ onClose, onLoginSuccess }) {
     try {
       const formData = new FormData()
       Object.entries(regForm).forEach(([k, v]) => formData.append(k, v))
-      // Avatar is required by backend — use a placeholder blob
+      // Avatar is optional in our updated backend, but we send a mock blob for compatibility
       const blob = new Blob([''], { type: 'image/png' })
       formData.append('avatar', blob, 'avatar.png')
 
@@ -124,14 +131,51 @@ function AuthModal({ onClose, onLoginSuccess }) {
         headers: { 'Content-Type': 'multipart/form-data' },
         withCredentials: true,
       })
-      // Auto-login after register
-      const loginRes = await axios.post('/api/v1/users/login', {
-        username: regForm.username, password: regForm.password,
-      }, { withCredentials: true })
-      onLoginSuccess(loginRes.data?.data?.user || loginRes.data)
-      onClose()
+
+      if (res.data?.data?.isUnverified) {
+        setVerificationEmail(regForm.email)
+        setTab('otp')
+      } else {
+        // Auto-login fallback
+        const loginRes = await axios.post('/api/v1/users/login', {
+          username: regForm.username, password: regForm.password,
+        }, { withCredentials: true })
+        onLoginSuccess(loginRes.data?.data?.user || loginRes.data)
+        onClose()
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Registration failed.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleVerifyOTP = async (e) => {
+    e.preventDefault()
+    setLoading(true); setError('')
+    try {
+      const res = await axios.post('/api/v1/users/verify-otp', {
+        email: verificationEmail,
+        otp: otpCode
+      }, { withCredentials: true })
+      onLoginSuccess(res.data?.data?.user || res.data)
+      onClose()
+    } catch (err) {
+      setError(err.response?.data?.message || 'Verification failed. Try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleResendOTP = async () => {
+    setLoading(true); setError('')
+    try {
+      await axios.post('/api/v1/users/resend-otp', {
+        email: verificationEmail
+      })
+      alert('Verification OTP code resent successfully to your email.')
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to resend OTP.')
     } finally {
       setLoading(false)
     }
@@ -151,29 +195,31 @@ function AuthModal({ onClose, onLoginSuccess }) {
           </div>
           <div className="auth-modal-title">BingeWatch</div>
           <div className="auth-modal-sub">
-            {tab === 'login' ? 'Welcome back — sign in to continue' : 'Create your account'}
+            {tab === 'login' ? 'Welcome back — sign in to continue' : tab === 'register' ? 'Create your account' : 'Verify your email address'}
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="auth-tabs" role="tablist">
-          <button
-            id="auth-tab-login"
-            className={`auth-tab ${tab === 'login' ? 'active' : ''}`}
-            onClick={() => { setTab('login'); setError('') }}
-            role="tab" aria-selected={tab === 'login'}
-          >
-            Sign In
-          </button>
-          <button
-            id="auth-tab-register"
-            className={`auth-tab ${tab === 'register' ? 'active' : ''}`}
-            onClick={() => { setTab('register'); setError('') }}
-            role="tab" aria-selected={tab === 'register'}
-          >
-            Register
-          </button>
-        </div>
+        {tab !== 'otp' && (
+          <div className="auth-tabs" role="tablist">
+            <button
+              id="auth-tab-login"
+              className={`auth-tab ${tab === 'login' ? 'active' : ''}`}
+              onClick={() => { setTab('login'); setError('') }}
+              role="tab" aria-selected={tab === 'login'}
+            >
+              Sign In
+            </button>
+            <button
+              id="auth-tab-register"
+              className={`auth-tab ${tab === 'register' ? 'active' : ''}`}
+              onClick={() => { setTab('register'); setError('') }}
+              role="tab" aria-selected={tab === 'register'}
+            >
+              Register
+            </button>
+          </div>
+        )}
 
         {/* Login Form */}
         {tab === 'login' && (
@@ -246,6 +292,44 @@ function AuthModal({ onClose, onLoginSuccess }) {
             >
               {loading ? 'Creating account...' : 'Create Account'}
             </button>
+          </form>
+        )}
+
+        {/* OTP Verification Form */}
+        {tab === 'otp' && (
+          <form id="otp-form" className="auth-form" onSubmit={handleVerifyOTP}>
+            <div className="form-group" style={{ marginBottom: '15px' }}>
+              <label className="form-label" htmlFor="otp-input">Enter 6-digit OTP sent to {verificationEmail}</label>
+              <input
+                id="otp-input"
+                type="text"
+                maxLength={6}
+                pattern="\d{6}"
+                className={`form-input ${error ? 'error' : ''}`}
+                placeholder="123456"
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                style={{ textAlign: 'center', fontSize: '24px', letterSpacing: '8px' }}
+                required
+              />
+            </div>
+            {error && <div className="form-error" role="alert" style={{ marginBottom: '15px' }}>{error}</div>}
+            <button
+              id="otp-submit-btn"
+              type="submit"
+              className={`submit-btn ${loading ? 'loading' : ''}`}
+              disabled={loading}
+            >
+              {loading ? 'Verifying...' : 'Verify & Log In'}
+            </button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px', fontSize: '14px' }}>
+              <button type="button" onClick={handleResendOTP} style={{ background: 'none', border: 'none', color: '#6366f1', cursor: 'pointer', padding: 0 }}>
+                Resend Code
+              </button>
+              <button type="button" onClick={() => { setTab('login'); setError(''); setOtpCode('') }} style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', padding: 0 }}>
+                Back to Sign In
+              </button>
+            </div>
           </form>
         )}
       </div>

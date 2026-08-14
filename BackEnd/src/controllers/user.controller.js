@@ -3,6 +3,7 @@ import { ApiError } from '../utils/ApiError.js';
 import { User } from '../models/user.model.js';
 import { uploadOnCloudinary } from '../utils/cloudinary.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
+import { sendVerificationEmail } from '../utils/mail.js';
 import jwt from "jsonwebtoken";
 
 
@@ -56,38 +57,49 @@ const registerUser = asyncHandler(async (req, res) => {
         throw new ApiError(409, "User already exists");
     }
 
-    const avatarLocalPath = req.files?.avatar[0]?.path;
+    const avatarLocalPath = req.files?.avatar?.[0]?.path;
     const coverImageLocalPath = req.files?.coverImage?.[0]?.path;
-    
 
-    if (!avatarLocalPath){
-        throw new ApiError(400, "Avatar file is required");
+    let avatarUrl = "https://avatar.iran.liara.run/public";
+    if (avatarLocalPath) {
+        const avatar = await uploadOnCloudinary(avatarLocalPath);
+        if (avatar) {
+            avatarUrl = avatar.url;
+        }
     }
 
-    const avatar = await uploadOnCloudinary(avatarLocalPath);
-    const coverImage = await uploadOnCloudinary(coverImageLocalPath);
-
-
-    if (!avatar) {
-        throw new ApiError(400, "Failed to upload avatar");
-    }    
+    const coverImage = coverImageLocalPath ? await uploadOnCloudinary(coverImageLocalPath) : null;
 
     const user = await User.create({
         fullName,
-        avatar: avatar.url,
+        avatar: avatarUrl,
         coverImage: coverImage?.url || "",
         email,
         password,
         username: username.toLowerCase()
     })
 
-    const createdUser = await User.findById(user._id).select("-password -refreshToken")
+    const createdUser = await User.findById(user._id).select("-password -refreshToken");
 
     if (!createdUser) {
         throw new ApiError(500, "Failed to create user");
     }
 
-    return res.status(201).json(new ApiResponse(201, "User registered successfully", createdUser));
+    // Generate Verification OTP (6 digits)
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.otp = otp;
+    user.otpExpiry = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes validity
+    user.isVerified = false;
+    await user.save();
+
+    // Send OTP verification email
+    await sendVerificationEmail(email, otp);
+
+    return res.status(201).json(new ApiResponse(201, {
+        isUnverified: true,
+        email: user.email,
+        username: user.username
+    }, "Registration initiated. Verification OTP sent to your email."));
 })
 
 const loginUser = asyncHandler(async (req, res) => {
@@ -119,6 +131,20 @@ const loginUser = asyncHandler(async (req, res) => {
     
     if (!isPasswordValid) {
         throw new ApiError(401, "Invalid password");
+    }
+
+    // Guard unverified logins
+    if (!user.isVerified) {
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        user.otp = otp;
+        user.otpExpiry = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+        await user.save();
+        await sendVerificationEmail(user.email, otp);
+
+        return res.status(403).json(new ApiResponse(403, {
+            isUnverified: true,
+            email: user.email
+        }, "Email is not verified. A verification OTP has been sent to your email."));
     }
 
     const {accessToken, refreshToken} = await generateAccessAndRefreshTokens(user._id)
@@ -425,6 +451,86 @@ const getWatchHistory = asyncHandler(async(req, res) => {
 })
 
 
+const verifyOTP = asyncHandler(async (req, res) => {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+        throw new ApiError(400, "Email and OTP are required");
+    }
+
+    const user = await User.findOne({ email });
+
+    if (!user) {
+        throw new ApiError(404, "User not found");
+    }
+
+    if (user.isVerified) {
+        return res.status(200).json(new ApiResponse(200, null, "Email is already verified"));
+    }
+
+    if (!user.otp || !user.otpExpiry) {
+        throw new ApiError(400, "No OTP request found for this user");
+    }
+
+    if (new Date() > user.otpExpiry) {
+        throw new ApiError(400, "OTP has expired");
+    }
+
+    if (user.otp !== otp.trim()) {
+        throw new ApiError(400, "Invalid OTP");
+    }
+
+    user.isVerified = true;
+    user.otp = undefined;
+    user.otpExpiry = undefined;
+    await user.save();
+
+    const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(user._id);
+
+    const loggedInUser = await User.findById(user._id).select("-password -refreshToken");
+
+    const options = {
+        httpOnly: true,
+        secure: true
+    };
+
+    return res.status(200)
+        .cookie("accessToken", accessToken, options)
+        .cookie("refreshToken", refreshToken, options)
+        .json(new ApiResponse(200, {
+            user: loggedInUser,
+            accessToken,
+            refreshToken
+        }, "Email verified and logged in successfully"));
+});
+
+const resendOTP = asyncHandler(async (req, res) => {
+    const { email } = req.body;
+
+    if (!email) {
+        throw new ApiError(400, "Email is required");
+    }
+
+    const user = await User.findOne({ email });
+
+    if (!user) {
+        throw new ApiError(404, "User not found");
+    }
+
+    if (user.isVerified) {
+        return res.status(400).json(new ApiResponse(400, null, "Email is already verified"));
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.otp = otp;
+    user.otpExpiry = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+    await user.save();
+
+    await sendVerificationEmail(user.email, otp);
+
+    return res.status(200).json(new ApiResponse(200, null, "Verification OTP sent successfully"));
+});
+
 export {
     registerUser,
     loginUser,
@@ -436,5 +542,7 @@ export {
     updateUserAvatar,
     updateUserCoverImage,
     getUserChannelProfile,
-    getWatchHistory
+    getWatchHistory,
+    verifyOTP,
+    resendOTP
 }

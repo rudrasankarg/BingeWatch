@@ -20,7 +20,7 @@ export default function ChannelPage({ user, onVideoClick, refreshKey, onSaveSucc
       </div>
 
       {/* Profile Details Container */}
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 24px' }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 24px', position: 'relative', zIndex: 2 }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: '20px', marginTop: '-32px', marginBottom: '30px' }}>
           
           {/* Left: Avatar + Details */}

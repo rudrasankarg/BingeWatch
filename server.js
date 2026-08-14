@@ -11,6 +11,7 @@ import os from 'os';
 dns.setServers(["8.8.8.8", "1.1.1.1"]);
 
 dotenv.config();
+dotenv.config({ path: './BackEnd/.env' });
 
 cloudinary.config({ 
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME, 

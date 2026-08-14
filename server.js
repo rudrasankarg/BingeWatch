@@ -155,5 +155,5 @@ app.get('/api/health', (req, res) => {
 // ─── Start Server ─────────────────────────────────────────────────────────────
 const port = process.env.PORT || 4000;
 app.listen(port, () => {
-    console.log(`🚀 BingeWatch server running at http://localhost:${port}`);
+    console.log(`BingeWatch server running at http://localhost:${port}`);
 });

@@ -330,20 +330,22 @@ export default function VideoPlayer({ video, onVideoClick, relatedVideos, user, 
                 <div className="channel-detail-name">{video.channel}</div>
                 <div className="channel-subs">{video.channelHandle}</div>
               </div>
-              <button
-                id="subscribe-btn"
-                className={`subscribe-btn ${subscribed ? 'subscribed' : ''}`}
-                onClick={() => {
-                  if (!user) {
-                    onRequireAuth()
-                    return
-                  }
-                  setSubscribed(!subscribed)
-                }}
-                aria-pressed={subscribed}
-              >
-                {subscribed ? '✓ Subscribed' : 'Subscribe'}
-              </button>
+              {!(user && (user.username === video.owner || user.email === video.owner || `@${user.username}` === video.channelHandle)) && (
+                <button
+                  id="subscribe-btn"
+                  className={`subscribe-btn ${subscribed ? 'subscribed' : ''}`}
+                  onClick={() => {
+                    if (!user) {
+                      onRequireAuth()
+                      return
+                    }
+                    setSubscribed(!subscribed)
+                  }}
+                  aria-pressed={subscribed}
+                >
+                  {subscribed ? '✓ Subscribed' : 'Subscribe'}
+                </button>
+              )}
             </div>
 
             {/* Action Buttons */}

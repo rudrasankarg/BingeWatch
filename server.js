@@ -168,6 +168,44 @@ app.delete('/api/videos/:id', async (req, res) => {
     }
 });
 
+// POST /api/videos/:id/like (Increment likes)
+app.post('/api/videos/:id/like', async (req, res) => {
+    const { id } = req.params;
+    try {
+        if (mongoose.connection.readyState !== 1) {
+            return res.status(503).json({ error: 'Database connection not ready' });
+        }
+        const video = await Video.findByIdAndUpdate(
+            id,
+            { $inc: { likes: 1 } },
+            { new: true }
+        );
+        if (!video) return res.status(404).json({ error: 'Video not found' });
+        res.json(video);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/videos/:id/unlike (Decrement likes)
+app.post('/api/videos/:id/unlike', async (req, res) => {
+    const { id } = req.params;
+    try {
+        if (mongoose.connection.readyState !== 1) {
+            return res.status(503).json({ error: 'Database connection not ready' });
+        }
+        const video = await Video.findByIdAndUpdate(
+            id,
+            { $inc: { likes: -1 } },
+            { new: true }
+        );
+        if (!video) return res.status(404).json({ error: 'Video not found' });
+        res.json(video);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // GET /api/videos
 app.get('/api/videos', async (req, res) => {
     const { category } = req.query;

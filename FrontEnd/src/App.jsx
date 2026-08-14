@@ -45,9 +45,21 @@ export default function App() {
   // Pre-fetch all videos for related panel
   useEffect(() => {
     axios.get('/api/videos')
-      .then(res => setAllVideos(res.data))
+      .then(res => {
+        setAllVideos(res.data)
+        
+        // Parse ?video=xxx query param to load shared video
+        const params = new URLSearchParams(window.location.search)
+        const videoId = params.get('video')
+        if (videoId) {
+          const video = res.data.find(v => (v._id || v.id) === videoId)
+          if (video) {
+            handleVideoClick(video)
+          }
+        }
+      })
       .catch(() => {})
-  }, [])
+  }, [handleVideoClick])
 
   const handleVideoClick = useCallback((video) => {
     setSelectedVideo(video)

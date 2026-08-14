@@ -101,8 +101,14 @@ export default function VideoPlayer({ video, onVideoClick, relatedVideos, user, 
   useEffect(() => {
     setIsPlaying(false)
     setProgress(0)
-    setLiked(false)
+    
+    // Load liked status from localStorage
+    const likedIds = JSON.parse(localStorage.getItem('bw_liked') || '[]')
+    const videoId = video._id || video.id
+    const isLiked = likedIds.includes(videoId)
+    setLiked(isLiked)
     setLikeCount(video.likes || 0)
+    
     setSubscribed(false)
     setDescExpanded(false)
     setPlaybackRate(1)
@@ -112,15 +118,66 @@ export default function VideoPlayer({ video, onVideoClick, relatedVideos, user, 
       videoRef.current.playbackRate = 1
       videoRef.current.load()
     }
-  }, [video._id || video.id])
+  }, [video._id || video.id, video.likes])
 
-  const handleLike = () => {
+  const handleLike = async () => {
     if (!user) {
       onRequireAuth()
       return
     }
-    setLiked((l) => !l)
-    setLikeCount((c) => liked ? c - 1 : c + 1)
+    const isCurrentlyLiked = !liked
+    setLiked(isCurrentlyLiked)
+    setLikeCount((c) => isCurrentlyLiked ? c + 1 : c - 1)
+
+    // Save to localStorage liked & sync with DB
+    try {
+      const likedIds = JSON.parse(localStorage.getItem('bw_liked') || '[]')
+      const videoId = video._id || video.id
+      if (isCurrentlyLiked) {
+        if (!likedIds.includes(videoId)) {
+          likedIds.push(videoId)
+        }
+        await axios.post(`/api/videos/${videoId}/like`)
+      } else {
+        const idx = likedIds.indexOf(videoId)
+        if (idx > -1) {
+          likedIds.splice(idx, 1)
+        }
+        await axios.post(`/api/videos/${videoId}/unlike`)
+      }
+      localStorage.setItem('bw_liked', JSON.stringify(likedIds))
+    } catch (err) {
+      console.error("Failed to sync like with DB", err)
+    }
+  }
+
+  const handleDownload = async () => {
+    if (!video.videoUrl) {
+      alert("No video source available for download")
+      return
+    }
+    try {
+      const response = await fetch(video.videoUrl)
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${video.title || 'video'}.mp4`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      // Fallback to direct window open if fetch CORS blocks it
+      window.open(video.videoUrl, '_blank')
+    }
+  }
+
+  const handleShare = () => {
+    const shareUrl = `${window.location.origin}/?video=${video._id || video.id}`
+    navigator.clipboard.writeText(shareUrl)
+      .then(() => alert(`Share link copied to clipboard: ${shareUrl}`))
+      .catch(() => alert('Failed to copy link.'))
   }
 
   const handleProgressClick = (e) => {
@@ -378,19 +435,14 @@ export default function VideoPlayer({ video, onVideoClick, relatedVideos, user, 
                 </button>
               </div>
 
-              <button id="share-btn" className="action-btn-solo" aria-label="Share this video">
+              <button id="share-btn" className="action-btn-solo" onClick={handleShare} aria-label="Share this video">
                 <ShareIcon /> Share
               </button>
               <button
                 id="save-btn"
                 className="action-btn-solo"
-                onClick={() => {
-                  if (!user) {
-                    onRequireAuth()
-                    return
-                  }
-                }}
-                aria-label="Save to playlist"
+                onClick={handleDownload}
+                aria-label="Download video file"
               >
                 <SaveIcon /> Save
               </button>

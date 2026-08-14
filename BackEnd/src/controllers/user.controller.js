@@ -158,14 +158,13 @@ const loginUser = asyncHandler(async (req, res) => {
 
     return res.status(200).cookie("accessToken", accessToken, options).cookie("refreshToken", refreshToken, options).json(new ApiResponse(
         200, 
+        "User logged in successfully",
         {
             user: loggedInUser,
             accessToken,
             refreshToken
-        },
-        "User logged in successfully"
-    )
-)
+        }
+    ))
 })
 
 const logoutUser = asyncHandler(async(req, res)=> {
@@ -256,7 +255,7 @@ const changeCurrentPassword = asyncHandler(async(req, res) => {
 })
 
 const getCurrentUserProfile = asyncHandler(async(req, res) => {
-    return res.status(200).json(new ApiResponse(200, req.user, "User profile fetched successfully"))
+    return res.status(200).json(new ApiResponse(200, "User profile fetched successfully", req.user))
 })
 
 const updateAccountDetails = asyncHandler(async(req, res) => {
@@ -278,7 +277,7 @@ const updateAccountDetails = asyncHandler(async(req, res) => {
         }
     ).select("-password -refreshToken")
 
-    return res.status(200).json(new ApiResponse(200, user, "Account details updated successfully"))
+    return res.status(200).json(new ApiResponse(200, "Account details updated successfully", user))
 })
 
 const updateUserAvatar = asyncHandler(async(req, res) => {
@@ -307,7 +306,7 @@ const updateUserAvatar = asyncHandler(async(req, res) => {
             }
         ).select("-password -refreshToken")
 
-        return res.status(200).json(new ApiResponse(200, user, "Avatar updated successfully"))
+        return res.status(200).json(new ApiResponse(200, "Avatar updated successfully", user))
 })
 
 const updateUserCoverImage = asyncHandler(async(req, res) => {
@@ -335,7 +334,7 @@ const updateUserCoverImage = asyncHandler(async(req, res) => {
         }
     ).select("-password -refreshToken")
 
-    return res.status(200).json(new ApiResponse(200, user, "Cover image updated successfully"))
+    return res.status(200).json(new ApiResponse(200, "Cover image updated successfully", user))
 })
 
 const getUserChannelProfile = asyncHandler(async(req, res) => {
@@ -402,7 +401,7 @@ const getUserChannelProfile = asyncHandler(async(req, res) => {
         throw new ApiError(404, "Channel not found")
     }
 
-    return res.status(200).json(new ApiResponse(200, channel[0], "Channel profile fetched successfully"))
+    return res.status(200).json(new ApiResponse(200, "Channel profile fetched successfully", channel[0]))
 })
 
 const getWatchHistory = asyncHandler(async(req, res) => {
@@ -447,7 +446,7 @@ const getWatchHistory = asyncHandler(async(req, res) => {
             }
         }
     ])
-    return res.status(200).json(new ApiResponse(200, user[0]?.watchedHistory || [], "Watch history fetched successfully"))
+    return res.status(200).json(new ApiResponse(200, "Watch history fetched successfully", user[0]?.watchedHistory || []))
 })
 
 

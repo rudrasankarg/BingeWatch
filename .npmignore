@@ -1,0 +1,8 @@
+# Files to exclude from npm publish artifact
+# This prevents src/ from being included in the tarball
+
+src/
+FrontEnd/
+Project/
+*.env*
+.env*

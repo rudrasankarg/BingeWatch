@@ -30,7 +30,14 @@ const CloseIcon = () => (
 )
 
 // ─── Profile Panel (shown when logged in) ────────────────────────────────────
-function ProfilePanel({ user, onClose, onLogout }) {
+function ProfilePanel({ user, onClose, onLogout, onLoginSuccess }) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [fullName, setFullName] = useState(user.fullName || '')
+  const [avatarFile, setAvatarFile] = useState(null)
+  const [coverFile, setCoverFile] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
   const initials = (user.fullName || user.username || 'U').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
 
   const handleLogout = async () => {
@@ -41,19 +48,144 @@ function ProfilePanel({ user, onClose, onLogout }) {
     onClose()
   }
 
+  const handleSave = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+    try {
+      // 1. Update Display Name
+      if (fullName !== user.fullName) {
+        await axios.patch('/api/v1/users/update-account', {
+          fullName: fullName,
+          email: user.email
+        }, { withCredentials: true })
+      }
+
+      // 2. Update Avatar File
+      if (avatarFile) {
+        const formData = new FormData()
+        formData.append('avatar', avatarFile)
+        await axios.patch('/api/v1/users/avatar', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          withCredentials: true
+        })
+      }
+
+      // 3. Update Cover Image File
+      if (coverFile) {
+        const formData = new FormData()
+        formData.append('coverImage', coverFile)
+        await axios.patch('/api/v1/users/cover-image', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          withCredentials: true
+        })
+      }
+
+      // 4. Fetch latest user details and sync state
+      const userRes = await axios.get('/api/v1/users/current-user', { withCredentials: true })
+      if (userRes.data?.data) {
+        onLoginSuccess(userRes.data.data)
+      }
+      setIsEditing(false)
+    } catch (err) {
+      console.error(err)
+      setError(err.response?.data?.message || 'Failed to update channel details')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (isEditing) {
+    return (
+      <div className="panel-overlay" onClick={onClose} aria-modal="true" role="dialog">
+        <div className="profile-panel" style={{ width: '400px', padding: '24px' }} onClick={(e) => e.stopPropagation()}>
+          <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '16px', color: 'var(--text-main)' }}>Edit Channel</h3>
+          
+          <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Banner selector */}
+            <div style={{ position: 'relative', height: '100px', background: '#1e293b', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
+              {coverFile ? (
+                <img src={URL.createObjectURL(coverFile)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="New banner preview" />
+              ) : user.coverImage ? (
+                <img src={user.coverImage} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Current banner" />
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-secondary)', fontSize: '12px' }}>No Cover Banner</div>
+              )}
+              <label htmlFor="cover-input" style={{ position: 'absolute', right: '8px', bottom: '8px', background: 'rgba(0,0,0,0.6)', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', color: '#fff', cursor: 'pointer' }}>
+                Change Banner
+              </label>
+              <input id="cover-input" type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => setCoverFile(e.target.files[0])} />
+            </div>
+
+            {/* Avatar Selector */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div style={{ position: 'relative', width: '64px', height: '64px', borderRadius: '50%', overflow: 'hidden', background: user.avatarColor || '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--bg-surface)' }}>
+                {avatarFile ? (
+                  <img src={URL.createObjectURL(avatarFile)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="New avatar preview" />
+                ) : user.avatar ? (
+                  <img src={user.avatar} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Current avatar" />
+                ) : (
+                  <span style={{ fontSize: '20px', fontWeight: '700', color: '#fff' }}>{initials}</span>
+                )}
+                <label htmlFor="avatar-input" style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity 0.2s', cursor: 'pointer' }} onMouseEnter={(e) => e.currentTarget.style.opacity = 1} onMouseLeave={(e) => e.currentTarget.style.opacity = 0}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                </label>
+                <input id="avatar-input" type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => setAvatarFile(e.target.files[0])} />
+              </div>
+              <div>
+                <div style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-main)' }}>Channel Avatar</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Click image to select file</div>
+              </div>
+            </div>
+
+            {/* Display / Full Name Input */}
+            <div className="form-group">
+              <label className="form-label" htmlFor="edit-name">Display Name</label>
+              <input
+                id="edit-name"
+                type="text"
+                className="form-input"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                required
+              />
+            </div>
+
+            {error && <div className="form-error" role="alert">{error}</div>}
+
+            <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+              <button type="button" className="submit-btn" style={{ background: 'var(--bg-input)', color: 'var(--text-main)' }} onClick={() => setIsEditing(false)} disabled={loading}>
+                Cancel
+              </button>
+              <button type="submit" className="submit-btn" disabled={loading}>
+                {loading ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="panel-overlay" onClick={onClose} aria-modal="true" role="dialog">
       <div className="profile-panel" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="profile-header">
-          <div className="profile-big-avatar">{initials}</div>
+          <div className="profile-big-avatar" style={{ overflow: 'hidden', background: user.avatarColor || '#6366f1' }}>
+            {user.avatar ? (
+              <img src={user.avatar} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Avatar" />
+            ) : (
+              initials
+            )}
+          </div>
           <div className="profile-name">{user.fullName || user.username}</div>
           <div className="profile-email">{user.email}</div>
         </div>
 
         {/* Actions */}
         <div className="profile-actions">
-          <button id="profile-view-btn" className="profile-action-btn" aria-label="View your channel">
+          <button id="profile-view-btn" className="profile-action-btn" onClick={() => setIsEditing(true)} aria-label="View your channel">
             <UserIcon /> Your Channel
           </button>
           <button id="profile-history-btn" className="profile-action-btn" aria-label="Watch history">
@@ -340,7 +472,7 @@ function AuthModal({ onClose, onLoginSuccess }) {
 // ─── Main Export ─────────────────────────────────────────────────────────────
 export default function ProfileAuth({ user, onClose, onLoginSuccess, onLogout }) {
   if (user) {
-    return <ProfilePanel user={user} onClose={onClose} onLogout={onLogout} />
+    return <ProfilePanel user={user} onClose={onClose} onLogout={onLogout} onLoginSuccess={onLoginSuccess} />
   }
   return <AuthModal onClose={onClose} onLoginSuccess={onLoginSuccess} />
 }

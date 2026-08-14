@@ -64,6 +64,57 @@ const Channel = mongoose.model('Channel', channelSchema);
 
 // ─── API Routes ───────────────────────────────────────────────────────────────
 
+// POST /api/videos (Create new video)
+app.post('/api/videos', async (req, res) => {
+    const { title, description, category, channel, channelHandle, channelAvatarColor } = req.body;
+
+    if (!title || !channel || !channelHandle) {
+        return res.status(400).json({ error: 'Title, channel, and channelHandle are required' });
+    }
+
+    try {
+        if (mongoose.connection.readyState !== 1) {
+            return res.status(503).json({ error: 'Database connection not ready' });
+        }
+
+        // Generate a random gradient for the video thumbnail
+        const colors = [
+            '#ff4e50', '#f9d423', '#e1eec3', '#f05053', '#e15f41', 
+            '#c44569', '#574b90', '#3dc1d3', '#f78fb3', '#cf6a87', 
+            '#546de5', '#e15f41', '#f8a5c2', '#f5cd79', '#63cdda', 
+            '#778beb', '#786fa6'
+        ];
+        const color1 = colors[Math.floor(Math.random() * colors.length)];
+        const color2 = colors[Math.floor(Math.random() * colors.length)];
+        const thumbnailGradient = [color1, color2];
+
+        // Random duration between 1:30 and 15:45
+        const min = Math.floor(Math.random() * 15) + 1;
+        const sec = Math.floor(Math.random() * 60).toString().padStart(2, '0');
+        const duration = `${min}:${sec}`;
+
+        const video = new Video({
+            title,
+            description,
+            category: category || 'All',
+            channel,
+            channelHandle,
+            channelAvatarColor: channelAvatarColor || '#6366f1',
+            thumbnailGradient,
+            duration,
+            views: 0,
+            likes: 0,
+            dislikes: 0,
+            uploadedAt: new Date()
+        });
+
+        await video.save();
+        res.status(201).json(video);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // GET /api/videos
 app.get('/api/videos', async (req, res) => {
     const { category } = req.query;

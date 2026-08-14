@@ -5,7 +5,7 @@ import SkeletonCard from './SkeletonCard.jsx'
 
 const CATEGORIES = ['All', 'Gaming', 'Music', 'Tech', 'Science', 'Sports', 'Comedy', 'News', 'Education', 'Film']
 
-export default function VideoGrid({ onVideoClick }) {
+export default function VideoGrid({ onVideoClick, refreshKey }) {
   const [videos, setVideos] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -28,7 +28,7 @@ export default function VideoGrid({ onVideoClick }) {
 
   useEffect(() => {
     fetchVideos(activeCategory)
-  }, [activeCategory, fetchVideos])
+  }, [activeCategory, fetchVideos, refreshKey])
 
   const handleCategoryChange = (cat) => {
     setActiveCategory(cat)

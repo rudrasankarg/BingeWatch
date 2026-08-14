@@ -6,6 +6,7 @@ import VideoGrid from './components/VideoGrid.jsx'
 import VideoPlayer from './components/VideoPlayer.jsx'
 import SearchResults from './components/SearchResults.jsx'
 import ProfileAuth from './components/ProfileAuth.jsx'
+import UploadModal from './components/UploadModal.jsx'
 
 export default function App() {
   // ─── Theme ──────────────────────────────────────────────────────────────────
@@ -23,6 +24,8 @@ export default function App() {
   // ─── Auth ───────────────────────────────────────────────────────────────────
   const [user, setUser] = useState(null)
   const [showProfileAuth, setShowProfileAuth] = useState(false)
+  const [showUploadModal, setShowUploadModal] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   // Try to restore session on mount
   useEffect(() => {
@@ -80,6 +83,13 @@ export default function App() {
         onToggleTheme={toggleTheme}
         user={user}
         onAvatarClick={() => setShowProfileAuth(true)}
+        onUploadClick={() => {
+          if (!user) {
+            setShowProfileAuth(true)
+          } else {
+            setShowUploadModal(true)
+          }
+        }}
       />
 
       <div className="app-body">
@@ -95,7 +105,7 @@ export default function App() {
           role="main"
         >
           {page === 'home' && (
-            <VideoGrid onVideoClick={handleVideoClick} />
+            <VideoGrid onVideoClick={handleVideoClick} refreshKey={refreshKey} />
           )}
           {page === 'watch' && selectedVideo && (
             <VideoPlayer
@@ -119,6 +129,19 @@ export default function App() {
           onClose={() => setShowProfileAuth(false)}
           onLoginSuccess={(userData) => setUser(userData)}
           onLogout={() => setUser(null)}
+        />
+      )}
+
+      {/* Video Upload Modal */}
+      {showUploadModal && (
+        <UploadModal
+          user={user}
+          onClose={() => setShowUploadModal(false)}
+          onUploadSuccess={(newVideo) => {
+            setAllVideos(prev => [newVideo, ...prev])
+            setRefreshKey(prev => prev + 1)
+            handleLogoClick()
+          }}
         />
       )}
     </div>

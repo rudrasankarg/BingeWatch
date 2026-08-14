@@ -37,7 +37,7 @@ const UploadIcon = () => (
   </svg>
 )
 
-export default function Navbar({ onSearch, onLogoClick, onToggleSidebar, theme, onToggleTheme, user, onAvatarClick }) {
+export default function Navbar({ onSearch, onLogoClick, onToggleSidebar, theme, onToggleTheme, user, onAvatarClick, onUploadClick }) {
   const [query, setQuery] = useState('')
 
   const handleSubmit = (e) => {
@@ -83,7 +83,7 @@ export default function Navbar({ onSearch, onLogoClick, onToggleSidebar, theme, 
 
       {/* Right */}
       <div className="navbar-right">
-        <button id="upload-btn" className="icon-btn" aria-label="Upload video" title="Upload">
+        <button id="upload-btn" className="icon-btn" onClick={onUploadClick} aria-label="Upload video" title="Upload">
           <UploadIcon />
         </button>
         <button id="notifications-btn" className="icon-btn" aria-label="Notifications">

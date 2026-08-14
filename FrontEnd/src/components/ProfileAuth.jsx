@@ -344,9 +344,9 @@ function AuthModal({ onClose, onLoginSuccess }) {
 }
 
 // ─── Main Export ─────────────────────────────────────────────────────────────
-export default function ProfileAuth({ user, onClose, onLoginSuccess, onLogout }) {
+export default function ProfileAuth({ user, onClose, onLoginSuccess, onLogout, onViewChannel }) {
   if (user) {
-    return <ProfilePanel user={user} onClose={onClose} onLogout={onLogout} onLoginSuccess={onLoginSuccess} />
+    return <ProfilePanel user={user} onClose={onClose} onLogout={onLogout} onViewChannel={onViewChannel} />
   }
   return <AuthModal onClose={onClose} onLoginSuccess={onLoginSuccess} />
 }

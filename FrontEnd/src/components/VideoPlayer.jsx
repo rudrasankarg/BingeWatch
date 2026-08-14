@@ -109,7 +109,14 @@ export default function VideoPlayer({ video, onVideoClick, relatedVideos, user, 
     setLiked(isLiked)
     setLikeCount(video.likes || 0)
     
-    setSubscribed(false)
+    // Load subscription status from localStorage
+    try {
+      const subHandles = JSON.parse(localStorage.getItem('bw_subscriptions') || '[]')
+      setSubscribed(subHandles.includes(video.channelHandle))
+    } catch (e) {
+      setSubscribed(false)
+    }
+
     setDescExpanded(false)
     setPlaybackRate(1)
     setVideoCurrentTime(0)
@@ -118,7 +125,7 @@ export default function VideoPlayer({ video, onVideoClick, relatedVideos, user, 
       videoRef.current.playbackRate = 1
       videoRef.current.load()
     }
-  }, [video._id || video.id, video.likes])
+  }, [video._id || video.id, video.likes, video.channelHandle])
 
   const handleLike = async () => {
     if (!user) {
@@ -396,7 +403,25 @@ export default function VideoPlayer({ video, onVideoClick, relatedVideos, user, 
                       onRequireAuth()
                       return
                     }
-                    setSubscribed(!subscribed)
+                    const nextSubscribed = !subscribed
+                    setSubscribed(nextSubscribed)
+                    
+                    try {
+                      const subHandles = JSON.parse(localStorage.getItem('bw_subscriptions') || '[]')
+                      if (nextSubscribed) {
+                        if (!subHandles.includes(video.channelHandle)) {
+                          subHandles.push(video.channelHandle)
+                        }
+                      } else {
+                        const idx = subHandles.indexOf(video.channelHandle)
+                        if (idx > -1) {
+                          subHandles.splice(idx, 1)
+                        }
+                      }
+                      localStorage.setItem('bw_subscriptions', JSON.stringify(subHandles))
+                    } catch (e) {
+                      console.error(e)
+                    }
                   }}
                   aria-pressed={subscribed}
                 >

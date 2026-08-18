@@ -1,1 +1,1 @@
-BingeWatch
+BingeWatch - Full Stack Video Player

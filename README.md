@@ -1,4 +1,4 @@
 BingeWatch - Full Stack Video Player
 
 - Upload videos
-- Login authenticate
+- Login authentication for user
